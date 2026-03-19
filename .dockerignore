@@ -1,0 +1,5 @@
+world.sql
+.env*
+.git
+.github
+tests/
