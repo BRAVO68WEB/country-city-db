@@ -11,6 +11,7 @@ import (
 
 	"github.com/bravo68web/country-city-db/internal/cache"
 	"github.com/bravo68web/country-city-db/internal/db"
+	"github.com/bravo68web/country-city-db/internal/migration"
 	"github.com/bravo68web/country-city-db/internal/models"
 	"github.com/bravo68web/country-city-db/internal/repositories"
 	"github.com/bravo68web/country-city-db/internal/routes"
@@ -37,6 +38,18 @@ func init() {
 	}
 }
 
+func ensureMigrated(ctx context.Context, pool *pgxpool.Pool) {
+	migrated, err := migration.IsMigrated(ctx, pool)
+	if err != nil {
+		panic("failed to check migration status: " + err.Error())
+	}
+	if !migrated {
+		if err := migration.RunMigration(ctx, pool); err != nil {
+			panic("migration failed: " + err.Error())
+		}
+	}
+}
+
 func setupRealServer() {
 	ctx := context.Background()
 
@@ -52,6 +65,8 @@ func setupRealServer() {
 		panic("failed to connect to test database: " + err.Error())
 	}
 	testPool = pool
+
+	ensureMigrated(ctx, pool)
 
 	redisClient, err := cache.NewRedisClient(ctx)
 	if err != nil {
@@ -92,6 +107,9 @@ func setupMockServer() {
 		panic("failed to connect to database for mock mode (ensure docker-compose is up): " + err.Error())
 	}
 	testPool = pool
+
+	ensureMigrated(ctx, pool)
+
 	testRouter = buildRouter(pool, redisClient)
 }
 
